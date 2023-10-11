@@ -6,6 +6,9 @@ import csv
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder
+import pandas as pd
+import os
 
 
 def read_data(file_path):
@@ -19,7 +22,8 @@ def read_data(file_path):
         df (pd.DataFrame): DataFrame containing the data from the CSV file.
         csvfile_path (Path): Path object of the CSV file.
     """
-    print('\n*****************************************************************')
+    print(
+        '\n*****************************************************************')
     print("\n-----------------------",
           "\nSTARTING TO LOAD DATA!",
           "\n-----------------------\n")
@@ -49,11 +53,10 @@ def read_data(file_path):
 
     return df, csvfile_path
 
-
 def clean_data(df, y_column, data_path, columns_to_drop):
     """Cleans the data by performing various data cleaning operations.
 
-     Args:
+    Args:
         df (pd.DataFrame): DataFrame containing the data.
         y_column (str): Name of the column to be used as the prediction target.
         data_path (str): Path of the data file.
@@ -68,12 +71,13 @@ def clean_data(df, y_column, data_path, columns_to_drop):
         - change any na related characters to np.nan
         - remove duplicate rows by grouping by index and meaning row values
         - drop unwanted columns from dataframe
-        - change binary classification classes to either 0 or 1 when 2 classes present
+        - encode classes as numeric, handling binary, multi-class, or non-numeric targets
         - remove columns with a total number of nan values > 20
         - scale dataframe
     """
     # Print the DataFrame
-    print('\n*****************************************************************')
+    print(
+        '\n*****************************************************************')
     print("\n------------------------",
           "\nSTARTING DATA CLEANING!",
           "\n-------------------------")
@@ -94,25 +98,21 @@ def clean_data(df, y_column, data_path, columns_to_drop):
     # Drop unwanted columns
     df = df.drop(columns=columns_to_drop)
 
-    # Account for custom binary y values
-    # Find the unique values in the column
-    print('\n--- Accounting for custom binary classes ---')
-    unique_values = df_classes.unique()
-    # If there are exactly two unique values
-    if len(unique_values) == 2:
-        # Determine the smaller and larger values
-        smaller_value = min(unique_values)
-        larger_value = max(unique_values)
-
-        # Create a mapping dictionary
-        mapping = {smaller_value: 0, larger_value: 1}
-
-        # Map the values in the column using the dictionary
-        df_classes = df_classes.map(mapping)
+    # Handling different types of y_column
+    if pd.api.types.is_numeric_dtype(df_classes):
+        # If the y_column is already numeric, no need for further conversion
+        pass
+    elif pd.api.types.is_bool_dtype(df_classes):
+        # If y_column is binary (boolean), convert to 0 or 1
+        df_classes = df_classes.astype(int)
+    else:
+        # If y_column is not numeric, encode it using LabelEncoder
+        le = LabelEncoder()
+        df_classes = le.fit_transform(df_classes)
 
     # Print the updated DataFrame
-    print("\n--- Converted Y_col to binary classes---\n",
-          df_classes.value_counts())
+    print("\n--- Converted Y_col to numeric classes ---\n",
+          pd.Series(df_classes).value_counts())
 
     # Drop y_column
     df = df.loc[:, df.columns != y_column]
@@ -129,37 +129,24 @@ def clean_data(df, y_column, data_path, columns_to_drop):
             pass
 
     print("\nTotal number of columns dropped:", len(list_col_drop))
-    # print("Snapshot of data after dropping NAs columns", df.head())
 
-    # SCALE THE DATA
+    # Scale the data
     print('\n--- Starting Scaling Data... ---')
-    # print(type(df))
-
-    # Iterate over each column to get only numerical data
-    for column in df.columns:
-        if df[column].dtype == 'object':
-            df[column] = pd.to_numeric(df[column], errors='coerce')
-
-    # Create a scaler
     scaler = StandardScaler()
-
-    # Transform the data using the scaler
-    df_scaled = pd.DataFrame(scaler.fit_transform(df),
-                             columns=df.columns, index=df.index)
-    # print(df_scaled.head())
-
-    # print('\n--- Completed Scaling!... ---')
+    df_scaled = pd.DataFrame(scaler.fit_transform(df), columns=df.columns,
+                             index=df.index)
+    print('\n--- Completed Scaling! ---')
 
     # Add class column back in and save
-    # Concatenate the class column and the scaled data
-    df_final = pd.concat([df_classes, df_scaled], axis=1)
-    print('\n--- Snapshot of final imputed data ---\n', df_final.iloc[:5,:5])
+    df_final = pd.concat([pd.Series(df_classes, name=y_column), df_scaled],
+                         axis=1)
+    print('\n--- Snapshot of final imputed data ---\n',
+          df_final.iloc[:5, :5])
 
     # Prepare the file name for saving
     file_name = os.path.basename(data_path)
-    # print("\n", file_name)
-    save_name = file_name.replace('.csv', '') + '_predicting_' + \
-        y_column + '_preprocessed.txt'
+    save_name = file_name.replace('.csv',
+                                  '') + '_predicting_' + y_column + '_preprocessed.txt'
 
     # Save the final DataFrame to a file
     df_final.to_csv(save_name, header=True)
@@ -168,5 +155,6 @@ def clean_data(df, y_column, data_path, columns_to_drop):
     print("\n-----------------------",
           "\nDATA CLEANING COMPLETE!",
           "\n-----------------------")
+
     # Return the scaled data, class column, and the file name
     return df_scaled, df_classes, save_name
