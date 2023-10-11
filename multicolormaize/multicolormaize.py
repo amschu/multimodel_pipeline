@@ -25,15 +25,24 @@ def create_output_dir(new_dir_name):
     Path(output_directory).mkdir(parents=True, exist_ok=True)
     return output_directory
 
-df, csv_path = read_data("../tutorial/widiv_2021drone_SilkandAntherColor.csv")
-data_directory = os.path.dirname(os.path.abspath(csv_path))
-os.chdir(data_directory)
-output_dir_path = create_output_dir("MultiColorMaize_PipelineOutput")
-os.chdir(output_dir_path)
-X, y, cleaned_file_path = clean_data(df,
-                                     "AntherColor",
-                                     columns_to_drop=["SilkColor"],
-                                     data_path=csv_path)
+# Provide the list of file paths to merge and preprocess
+data_paths = [
+    "../tutorial/widiv_2021drone_SilkandAntherColor.csv",
+    # Add other file paths as needed
+]
+
+# Specify the merge column, y column, and columns to drop
+merge_column = "GRIN"
+y_column = "AntherColor"
+columns_to_drop = ["SilkColor"]
+
+X, y, cleaned_file_path = merge_and_preprocess_data(
+    file_paths=data_paths,
+    merge_column=merge_column,
+    y_column=y_column,
+    columns_to_drop=columns_to_drop
+)
+
 X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=0.2)
 results_df, feature_importances = run_models(X_train,
                                              X_test,
