@@ -1,6 +1,6 @@
 import unittest
 import os
-from multicolormaize import create_output_dir
+from multimodel_pipeline import create_output_dir
 
 class TestCreateOutputDir(unittest.TestCase):
 
